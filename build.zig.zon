@@ -1,0 +1,219 @@
+// SPDX-License-Identifier: MIT
+// See FORK-LICENSE.md for what that identifier covers, and NOTICE.md for the
+// per-file notices the import carries.
+.{
+    // The package id and the name a dependent writes in its dependency map,
+    // and the one registered module: `dep.module("mimalloc")`. All three are
+    // `mimalloc`, and `dep.artifact("mimalloc")` is the same string, which is
+    // what makes Zig emit `libmimalloc.a` -- the name a C consumer's
+    // `-lmimalloc` needs, and the name the generated pkg-config file asks for
+    // in its own `Libs:` field (`build.zig:1042`).
+    .name = .mimalloc,
+    // Upstream's own release. `include/mimalloc.h:11` defines
+    // `MI_MALLOC_VERSION 30503` and names its own encoding in the comment on
+    // that line -- "major + 2 digits minor + 2 digits patch" -- which is
+    // 3.5.3; the same three numbers are what the `v3.5.3` release tag and the
+    // release tarball carry. This is the version of the C library this package
+    // builds, not a version of the wrapper. `build.zig` parses this string as a
+    // semantic version and compares it against the constant it reads out of
+    // that header (`build.zig:97-104`, `:132-137`), refusing to configure when
+    // the two disagree, so this string, the pkg-config `Version:` field and the
+    // shared object's file name cannot describe three different releases.
+    .version = "3.5.3",
+    // Deterministically derived, not invented: the first eight bytes of
+    // `sha256("mimalloc 3.5.3")`, big-endian. The derivation is recorded here
+    // so it can be recomputed rather than trusted, and the value belongs to
+    // this manifest alone -- it must not be copied from another package in this
+    // workspace or from a `zig init` placeholder.
+    .fingerprint = 0x26391c39abf542ec,
+    .minimum_zig_version = "0.16.0",
+    // Nothing is fetched: the C library is this repository's own source, and
+    // the facade, tests, example, consumer and runtime table import only what
+    // is compiled here. Upstream's release is the tarball already unpacked
+    // into `include/` and `src/`, with its root files preserved as `LICENSE`,
+    // `README.upstream.md` (upstream's `readme.md`) and `SECURITY.md`.
+    .dependencies = .{},
+
+    // Every entry below is an exact file, never a bare directory and never
+    // `.`. A directory entry would swallow whatever a build or a tool drops
+    // beside the sources -- `.zig-cache/`, `zig-out/`, `zig-pkg/` from a
+    // fetched dependency, a Nix `result` symlink or `devenv` state -- and
+    // `zig fetch` would hash those into the package a dependent receives.
+    // Naming files makes the closure auditable in one place: every byte a
+    // dependent gets is on this list, and `tools/check-provenance.sh` is what
+    // keeps the upstream half of it honest.
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        // The cross-test harness profile for this package. It is a file in the
+        // package because it is how this package declares what its
+        // cross-platform gate is: `cross-test` discovers it by name from the
+        // package root, and it is settings only - the standard `zig build test`
+        // step over the full published platform matrix, no target subset and
+        // no host path. Nothing in build.zig reads it.
+        "cross-test.profile.sh",
+        // zig/root.zig is the typed facade and zig/translate.h the one
+        // translation header. Both travel because a dependent reaches them
+        // through `dep.module("mimalloc")`.
+        "zig/root.zig",
+        "zig/translate.h",
+
+        // Upstream's `include/`, unmodified, file by file: the four headers
+        // upstream installs (`CMakeLists.txt:1082-1085`), the seven under
+        // `include/mimalloc/` that the build needs and upstream does not
+        // install, and `include/mimalloc-profile.h`, which upstream ships and
+        // does not install either. Which headers are installed is upstream's
+        // decision about its own installed surface and not this graph's
+        // (`build.zig:176-190`); the whole directory is here because the
+        // sources need it and a dependent that wants the complete source
+        // receives it.
+        "include/mimalloc-new-delete.h",
+        "include/mimalloc-override.h",
+        "include/mimalloc-profile.h",
+        "include/mimalloc-stats.h",
+        "include/mimalloc.h",
+        "include/mimalloc/atomic.h",
+        "include/mimalloc/bits.h",
+        "include/mimalloc/internal.h",
+        "include/mimalloc/prim-tls.h",
+        "include/mimalloc/prim.h",
+        "include/mimalloc/track.h",
+        "include/mimalloc/types.h",
+
+        // Upstream's `src/`, unmodified, file by file. This is the complete
+        // import rather than the compiled subset, and the difference is
+        // deliberate: `src/free.c` and `src/alloc-override.c` are textually
+        // included by `src/alloc.c:19-22`, `src/static.c` is the
+        // whole-amalgamation unit upstream compiles only as `mimalloc-obj`
+        // (`CMakeLists.txt:1092`), one platform `src/prim/*/prim.c` is chosen
+        // per target by the `#if` chain in `src/prim/prim.c:11-25`, and the ETW
+        // artifacts and both `readme.md` files are upstream's own material that
+        // compiles to nothing. None of them is edited, re-entered or
+        // regenerated, and a build that needed a file outside this closure
+        // would have to edit upstream to get it. `UPSTREAM.sha256` records the
+        // bytes of exactly this set and nothing else.
+        "src/alloc-aligned.c",
+        "src/alloc-override.c",
+        "src/alloc-posix.c",
+        "src/alloc.c",
+        "src/arena.c",
+        "src/bitmap.c",
+        "src/bitmap.h",
+        "src/free.c",
+        "src/heap.c",
+        "src/init.c",
+        "src/libc.c",
+        "src/options.c",
+        "src/os.c",
+        "src/page-map.c",
+        "src/page-queue.c",
+        "src/page.c",
+        "src/prim/emscripten/prim.c",
+        "src/prim/osx/alloc-override-zone.c",
+        "src/prim/osx/prim.c",
+        "src/prim/prim-tls.c",
+        "src/prim/prim.c",
+        "src/prim/readme.md",
+        "src/prim/unix/prim.c",
+        "src/prim/wasi/prim.c",
+        "src/prim/windows/etw-mimalloc.wprp",
+        "src/prim/windows/etw.h",
+        "src/prim/windows/etw.man",
+        "src/prim/windows/prim.c",
+        "src/prim/windows/readme.md",
+        "src/random.c",
+        "src/sample-guarded.c",
+        "src/sample-profile.c",
+        "src/static.c",
+        "src/stats.c",
+        "src/subproc.c",
+        "src/theap.c",
+        "src/threadlocal.c",
+
+        // Upstream's own root files, preserved byte for byte. `LICENSE` is
+        // upstream's MIT grant and stands alone at the tarball root;
+        // `README.upstream.md` is upstream's `readme.md` under the name this
+        // fork gives it, so this fork's own `README.md` can take the
+        // conventional name; `SECURITY.md` is upstream's own security policy
+        // and is kept as the record it is.
+        "LICENSE",
+        "README.upstream.md",
+        "SECURITY.md",
+
+        "tests.zig",
+        "smoke.zig",
+        // The separate consumer package: proof that the published module
+        // resolves from a package that did not write it, through a relative
+        // path rather than a fetch. Its three files are named rather than the
+        // `consumer` directory, so this list says exactly what travels.
+        "consumer/build.zig",
+        "consumer/build.zig.zon",
+        "consumer/src/main.zig",
+        // This fork's records: the provenance of the import, the per-file
+        // licence inventory, the licence grant for the fork-authored files and
+        // the numbered history of both.
+        "UPSTREAM.md",
+        "UPSTREAM.sha256",
+        "README.md",
+        "README.zig.md",
+        "NOTICE.md",
+        "CHANGELOG.md",
+        "FORK-NOTES.md",
+        "FORK-LICENSE.md",
+        // The provenance gate. It checks the recorded digests, the exact
+        // upstream file set and the licence records, and it needs no compiler
+        // at all -- which is why the workflow gives it a job of its own with no
+        // Zig toolchain installed in it.
+        "tools/check-provenance.sh",
+        // The runtime loader core the API role owns, this library's generated
+        // dispatch and descriptor beside it, and the two files its thread-safe
+        // publication needs. They are a dependency of the published module
+        // under `-Druntime`, so a dependent that fetches this package must
+        // receive them; `runtime/graph.zig` is the one place `createModule`
+        // substitutes for `translate.createModule()` (`build.zig:81-90`).
+        "runtime/generate.zig",
+        "runtime/graph.zig",
+        "runtime/library.zig",
+        "runtime/loader.zig",
+        "runtime/sync.c",
+        "runtime/sync.h",
+        // Standalone Nix packaging. `package.nix` is the one source-only
+        // derivation and builds the `.static` and `.dynamic` variants of this
+        // same tree; `flake.nix` exposes them; `devenv.nix`, `devenv.yaml` and
+        // `.envrc` provide the canonical development shell.
+        "package.nix",
+        "flake.nix",
+        "devenv.nix",
+        "devenv.yaml",
+        ".envrc",
+
+        // Two absences, both deliberate.
+        //
+        // `flake.lock` is not listed. It is a real file in this tree and it is
+        // the resolution `flake.nix`'s revision pin was checked against, but it
+        // is repository state rather than package content: a Nix derivation
+        // takes its inputs as arguments and the flake frontend resolves the
+        // locked inputs before the build source filter runs, so a fetched copy
+        // that arrives without the lock resolves the revision `flake.nix` pins
+        // instead of failing. Nothing here needs it to build.
+        // `devenv.lock` stays unlisted because it does not exist in this tree;
+        // naming a path that is not there makes `zig fetch` hash a missing
+        // entry. It belongs here the moment a real resolution produces one.
+        //
+        // `.github/` is absent for the reason box2d records: this package's
+        // workflow is repository CI, not package content, and a dependent who
+        // fetches this package must not receive a workflow that would run
+        // against their repository. Upstream's own CI is not vendored at all --
+        // the only place this tree names it is the preserved readme, whose
+        // badges at `README.upstream.md:3-6` point at upstream's own
+        // `.github/workflows/test.yaml` and at a Dev Azure pipeline on another
+        // maintainer's account. Those configure CMake and run elsewhere; this
+        // package runs neither.
+        //
+        // `.zig-cache/`, `zig-out/`, `zig-pkg/`, `consumer/.zig-cache/` and the
+        // Nix and devenv working-tree artefacts are absent for the reason at
+        // the top of this list: they are build output, a fetched package tree,
+        // a `result` symlink and shell state, and no one of them is package
+        // content.
+    },
+}

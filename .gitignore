@@ -1,0 +1,151 @@
+# mimalloc, forked. Two blocks of rules, kept in that order:
+#
+#   1. upstream's own ignore conventions, in full and unweakened, plus the
+#      re-inclusions that keep this fork's package content out of their reach;
+#   2. this fork's build and tooling output.
+#
+# Nothing above the second block removes an upstream entry to make room for a
+# fork-owned one. That rule is `AGENTS.md` §4 and it is the reason the
+# re-inclusions are written as explicit negations rather than as a shorter
+# upstream list.
+#
+# The one judgement call worth naming up front: **every upstream entry below was
+# checked against this package's shipped file set, and none of them currently
+# matches anything this package ships.** The re-inclusions in the middle are
+# therefore forward-looking, not a repair of a present collision — and they are
+# written now rather than at the moment someone needs them, because the moment
+# someone adds a `docs/` directory is exactly the moment nobody reads a
+# `.gitignore`.
+
+# ---------------------------------------------------------------------------
+# 1. Upstream's own ignore conventions, kept verbatim.
+#
+# These are mimalloc's, for the v3.5.3 tree. Upstream's `.gitignore` is not one
+# of the 52 files this package vendors — `UPSTREAM.md` imports the compiled and
+# installed closure, not upstream's repository metadata — so without this file
+# these conventions would simply be lost when the fork replaced upstream's. They
+# are kept for that reason, not because this package produces any of them.
+#
+# A pattern with no slash matches at any depth, so each of these is a rule about
+# every such name in the tree, not only about one at the root. That is why the
+# per-entry notes below say what each one would catch and where.
+# ---------------------------------------------------------------------------
+
+# Upstream's build directory. Matches any path component named exactly `build`,
+# at any depth, file or directory.
+#
+# Safe here, and worth saying why rather than leaving it to be assumed:
+# `build.zig`, `build.zig.zon`, `consumer/build.zig` and `consumer/build.zig.zon`
+# are all package content and all four are shipped. `build` does not match
+# `build.zig` -- a pattern matches a whole path component, not a prefix of one.
+# A future file named exactly `build` would be caught, and that would be
+# upstream's convention doing what it does everywhere else.
+build
+
+# Upstream's `out/` install directory. This fork's equivalent is `zig-out/`,
+# which is named separately below; nothing this package ships lives under an
+# `out/` directory, so this rule is inert today.
+out/
+
+# Upstream's generated documentation directory. This is the first of the two
+# broad upstream entries, and it is re-included below.
+docs/
+
+# Upstream's compressed release artifacts. This is the second broad entry, and
+# it is re-included below.
+*.zip
+*.tar
+*.gz
+
+# Editor and operating-system junk, both of which upstream carries and both of
+# which name nothing this package ships.
+.vscode
+.DS_Store
+
+# Upstream's Visual Studio project files under `ide/`. This package does not
+# vendor `ide/` at all -- see `UPSTREAM.md`, "What was NOT taken" -- so the rule
+# is inert, and it is kept because upstream's ignore convention is preserved
+# rather than trimmed to what happens to match today.
+ide/vs20??/*
+
+# ---------------------------------------------------------------------------
+# Re-inclusions.
+#
+# These are the only lines standing between upstream's broad entries and this
+# fork's own package content. They negate the rule; they do not delete it, so a
+# file that *should* be ignored for an upstream reason can still be ignored by
+# name further down.
+# ---------------------------------------------------------------------------
+
+# `docs/` is un-ignored, because this package's documentation is content and a
+# later wave must not lose it to upstream's convention.
+#
+# Today all eight documents sit at the repository root -- README.md,
+# README.zig.md, NOTICE.md, UPSTREAM.md, UPSTREAM.sha256, FORK-LICENSE.md,
+# CHANGELOG.md and FORK-NOTES.md -- and none is under a `docs/` directory, so
+# this is a re-inclusion that currently matches nothing. It is written now for
+# the case that does: a rendered manual, an example gallery or a generated
+# reference under `docs/`. A directory has to be un-ignored *before* its
+# contents can be, which is why the directory line and the contents line are
+# both here.
+!docs/
+!docs/**
+
+# `*.gz` is un-ignored, with the reason spelled out because it looks wrong at
+# first glance.
+#
+# This package ships no compressed file: the release tarball is verified by its
+# published sha256 and then unpacked into `src/`, `include/` and the three root
+# records, and `UPSTREAM.sha256` is the record of those bytes rather than the
+# archive. So un-ignoring `*.gz` cannot expose a vendored archive today. It
+# matters in both directions later: a `.gz` that is *added* is package content
+# and must be visible, and a `.gz` that a *build* produces is output.
+#
+# The two are separated without weakening the rule, because of how git applies
+# this file: a directory that is itself excluded is never descended into, so a
+# negation here cannot re-include anything inside one. That is why the build
+# output block below ignores whole directories rather than patterns, and it is
+# the property that makes this line safe to add.
+!*.gz
+
+# ---------------------------------------------------------------------------
+# 2. This fork's own build and tooling output.
+#
+# These are directories rather than single files because a normal `zig build`
+# creates them, and a normal `zig build` must not dirty the tree or leak into
+# the package published from it. `build.zig.zon`'s `.paths` names exact files
+# and never a directory, so an ignored path cannot become part of the package --
+# the same reason that list has no `.` in it.
+# ---------------------------------------------------------------------------
+.zig-cache/
+zig-out/
+
+# Zig 0.16 materialises a fetched dependency into a project-local directory
+# beside the build root. This package declares no dependencies
+# (`build.zig.zon` `.dependencies = .{}`), so this exists only so that a future
+# one cannot commit a fetched tree.
+zig-pkg/
+
+# The consumer package builds inside this repository and has its own cache and
+# output tree. It is ignored here as well as in consumer/.gitignore, so a build
+# run from the repository root cannot commit it by accident.
+consumer/.zig-cache/
+consumer/zig-out/
+consumer/zig-pkg/
+
+# Nix and devenv working-tree artefacts.
+#
+# `nix build` writes `result` (and `result-1`, `result-2`, ... on a rebuild) into
+# the directory that asked for it, and `devenv` writes its resolved inputs and
+# its state beside the project. Neither is named in `build.zig.zon` `.paths`.
+#
+# `flake.lock` and `devenv.lock` are deliberately **not** here: they are real
+# inputs, they belong to the driver, and ignoring them would be the wrong way to
+# keep a build out of a commit.
+result
+result-*
+.devenv/
+.devenv.flake.nix
+.devenv.flakes/
+devenv.local.nix
+.direnv/

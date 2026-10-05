@@ -1,0 +1,47 @@
+.{
+    // The package id of this separate package. It is the library's name with a
+    // `_consumer` suffix because it is a different package with a different
+    // identity, not a second version of mimalloc.
+    .name = .mimalloc_consumer,
+    // This package is not published and vendors no upstream release of its
+    // own. The version is the identity of the proof, not of a release.
+    .version = "0.1.0",
+    // Observed, not invented and not copied: the value Zig 0.16.0 printed for
+    // this package -
+    //
+    //     invalid fingerprint: 0x1cb20f1826ab4958; if this is a new or forked
+    //     package, use this value: 0x1b13260083a8ce07
+    //
+    // - which `zig build consumer` reports when it runs this manifest as the
+    // nested build's own root. The derivation lives in the compiler, not in the
+    // pinned `lib/std`, so it cannot be recomputed by hand and is not restated
+    // here as a formula; a value produced by hashing the name and version by
+    // hand is a fabricated identifier in a field whose whole purpose is to not
+    // be guessable, and the toolchain rejected one.
+    //
+    // It is this manifest's own value. The library's manifest carries a
+    // different one for the same reason, and a path dependency's fingerprint is
+    // not restated anywhere in this file.
+    .fingerprint = 0x1b13260083a8ce07,
+    .minimum_zig_version = "0.16.0",
+    .dependencies = .{
+        // A relative path, not a registry or archive URL. This package exists
+        // to prove that `dep.module("mimalloc")` resolves from a package that
+        // did not write it; resolving that through the network would make the
+        // proof depend on a published state of the world instead.
+        //
+        // The key is `mimalloc`, which is the library manifest's own `.name`,
+        // so `b.dependency("mimalloc", ...)` is what `build.zig` writes.
+        .mimalloc = .{ .path = ".." },
+    },
+    // Exact files, never a bare directory. `src` holds exactly one file today,
+    // and naming the directory would silently start shipping anything a build
+    // or an editor drops into it. `zig-out/` and `.zig-cache/` are written in
+    // this directory rather than inside `src/`, so naming `src/main.zig` names
+    // every byte a dependent can receive.
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src/main.zig",
+    },
+}
