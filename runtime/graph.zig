@@ -5,7 +5,9 @@ const std = @import("std");
 const sync_prefix = "mimalloc_rt";
 
 // `libc_noise` lists libc declarations reached through `zig/translate.h`.
-// Zig 0.16 citations: `assert.h` (generic-glibc:95,100,107,115; generic-musl:19; generic-freebsd:81; generic-netbsd:101-104; generic-openbsd:70-71; any-darwin-any/_assert.h:63; any-windows-any/assert.h:24-25); `stddef.h` (any-windows-any:18,20,21,24,26; generic-openbsd:78-79).
+// Zig 0.16 citations (not rechecked on 0.17):
+// `assert.h`: generic-glibc:95,100,107,115; generic-musl:19; generic-freebsd:81; generic-netbsd:101-104; generic-openbsd:70-71; any-darwin-any/_assert.h:63; any-windows-any/assert.h:24-25.
+// `stddef.h`: any-windows-any:18,20,21,24,26; generic-openbsd:78-79.
 const libc_noise =
     \\__assert,__assert13,__assert2,__assert_fail,__assert_perror_fail,__assert_rtn,
     \\__assert_single_arg,__diagassert,__diagassert13,_assert,_errno,_get_errno,

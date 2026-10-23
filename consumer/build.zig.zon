@@ -6,22 +6,8 @@
     // This package is not published and vendors no upstream release of its
     // own. The version is the identity of the proof, not of a release.
     .version = "0.1.0",
-    // Observed, not invented and not copied: the value Zig 0.16.0 printed for
-    // this package -
-    //
-    //     invalid fingerprint: 0x1cb20f1826ab4958; if this is a new or forked
-    //     package, use this value: 0x1b13260083a8ce07
-    //
-    // - which `zig build consumer` reports when it runs this manifest as the
-    // nested build's own root. The derivation lives in the compiler, not in the
-    // pinned `lib/std`, so it cannot be recomputed by hand and is not restated
-    // here as a formula; a value produced by hashing the name and version by
-    // hand is a fabricated identifier in a field whose whole purpose is to not
-    // be guessable, and the toolchain rejected one.
-    //
-    // It is this manifest's own value. The library's manifest carries a
-    // different one for the same reason, and a path dependency's fingerprint is
-    // not restated anywhere in this file.
+    // Zig 0.16.0 reported fingerprint 0x1b13260083a8ce07 for this package
+    // as a build root; not rechecked on 0.17.
     .fingerprint = 0x1b13260083a8ce07,
     .minimum_zig_version = "0.17.0",
     .dependencies = .{
