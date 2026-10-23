@@ -23,7 +23,7 @@
     // different one for the same reason, and a path dependency's fingerprint is
     // not restated anywhere in this file.
     .fingerprint = 0x1b13260083a8ce07,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     .dependencies = .{
         // A relative path, not a registry or archive URL. This package exists
         // to prove that `dep.module("mimalloc")` resolves from a package that

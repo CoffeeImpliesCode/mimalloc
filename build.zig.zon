@@ -6,7 +6,7 @@
     // Upstream release version.
     .version = "3.5.3",
     .fingerprint = 0x26391c39abf542ec,
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
     // No fetched dependencies.
     .dependencies = .{},
 

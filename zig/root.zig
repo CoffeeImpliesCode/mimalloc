@@ -975,52 +975,52 @@ pub const Option = enum(c.mi_option_e) {
 
 /// `mi_option_is_enabled` (`include/mimalloc.h:509`): whether this option is on.
 pub fn optionIsEnabled(option: Option) bool {
-    return c.mi_option_is_enabled(@intFromEnum(option));
+    return c.mi_option_is_enabled(@backingInt(option));
 }
 
 /// Enable this option.
 pub fn optionEnable(option: Option) void {
-    c.mi_option_enable(@intFromEnum(option));
+    c.mi_option_enable(@backingInt(option));
 }
 
 /// Disable this option.
 pub fn optionDisable(option: Option) void {
-    c.mi_option_disable(@intFromEnum(option));
+    c.mi_option_disable(@backingInt(option));
 }
 
 /// Set whether this option is enabled.
 pub fn optionSetEnabled(option: Option, enable: bool) void {
-    c.mi_option_set_enabled(@intFromEnum(option), enable);
+    c.mi_option_set_enabled(@backingInt(option), enable);
 }
 
 /// Change the built-in default rather than the current value.
 pub fn optionSetEnabledDefault(option: Option, enable: bool) void {
-    c.mi_option_set_enabled_default(@intFromEnum(option), enable);
+    c.mi_option_set_enabled_default(@backingInt(option), enable);
 }
 
 /// Return the current value as `c_long`, matching the platform's C `long`.
 pub fn optionGet(option: Option) c_long {
-    return c.mi_option_get(@intFromEnum(option));
+    return c.mi_option_get(@backingInt(option));
 }
 
 /// Return the current value clamped to `min .. max`; non-numeric options use `min`.
 pub fn optionGetClamp(option: Option, min: c_long, max: c_long) c_long {
-    return c.mi_option_get_clamp(@intFromEnum(option), min, max);
+    return c.mi_option_get_clamp(@backingInt(option), min, max);
 }
 
 /// Return a size-valued option in bytes; upstream stores these values in KiB.
 pub fn optionGetSize(option: Option) usize {
-    return c.mi_option_get_size(@intFromEnum(option));
+    return c.mi_option_get_size(@backingInt(option));
 }
 
 /// Set this option's value.
 pub fn optionSet(option: Option, value: c_long) void {
-    c.mi_option_set(@intFromEnum(option), value);
+    c.mi_option_set(@backingInt(option), value);
 }
 
 /// Set the built-in default rather than the current value.
 pub fn optionSetDefault(option: Option, value: c_long) void {
-    c.mi_option_set_default(@intFromEnum(option), value);
+    c.mi_option_set_default(@backingInt(option), value);
 }
 
 // The first allocation initializes process and thread state.

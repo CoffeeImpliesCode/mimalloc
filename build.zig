@@ -107,12 +107,19 @@ const Platform = struct {
     }
 
     fn macros(self: Platform) []const [2][]const u8 {
-        _ = self;
-        return &.{};
+        return switch (self.os_tag) {
+            .windows => &.{.{ "MI_WIN_NOREDIRECT", "1" }},
+            // WASI's PAGE_SIZE is a linker expression, not a preprocessor integer.
+            .wasi => &.{
+                .{ "MI_ARENA_SLICE_SHIFT", "(13 + MI_SIZE_SHIFT)" },
+                .{ "_WASI_EMULATED_PROCESS_CLOCKS", "1" },
+            },
+            else => &.{},
+        };
     }
 
     /// Shared builds enable upstream's shared-library export paths.
-    fn sharedMacros(linkage: std.builtin.LinkMode) []const [2][]const u8 {
+    fn sharedMacros(linkage: std.lang.LinkMode) []const [2][]const u8 {
         return switch (linkage) {
             .static => &.{},
             .dynamic => &.{
@@ -123,7 +130,7 @@ const Platform = struct {
     }
 
     /// `MI_SHARED_LIB` marks dynamic consumers as DLL imports on Windows.
-    fn sharedConsumerMacros(linkage: std.builtin.LinkMode) []const [2][]const u8 {
+    fn sharedConsumerMacros(linkage: std.lang.LinkMode) []const [2][]const u8 {
         return switch (linkage) {
             .static => &.{},
             .dynamic => &.{.{ "MI_SHARED_LIB", "1" }},
@@ -153,7 +160,7 @@ fn targetHasDynamicLinker(target: std.Build.ResolvedTarget) bool {
 }
 
 /// Refuse dynamic delivery when the target has no dynamic linker; never substitute static.
-fn deliveredLinkage(target: std.Build.ResolvedTarget, requested: std.builtin.LinkMode) std.builtin.LinkMode {
+fn deliveredLinkage(target: std.Build.ResolvedTarget, requested: std.lang.LinkMode) std.lang.LinkMode {
     if (requested == .dynamic and !targetHasDynamicLinker(target)) {
         std.debug.panic(
             "mimalloc: -Dlinkage=dynamic was asked for on " ++
@@ -178,9 +185,9 @@ fn artifactName(b: *std.Build, target: std.Build.ResolvedTarget, public: bool) [
 fn addGraph(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     library: Library,
-    linkage: std.builtin.LinkMode,
+    linkage: std.lang.LinkMode,
     runtime_loaded: bool,
     public: bool,
 ) Graph {
@@ -259,8 +266,8 @@ fn addGraph(
 fn add_c_library(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    requested: std.builtin.LinkMode,
+    optimize: std.lang.Optimize,
+    requested: std.lang.LinkMode,
     platform: Platform,
     name: []const u8,
 ) *std.Build.Step.Compile {
@@ -283,15 +290,13 @@ fn add_c_library(
     c_mod.addIncludePath(b.path(source_dir));
     c_mod.addIncludePath(b.path(header_dir));
 
-    _ = c_flags;
-
     // Apply target-specific macros to the compiled core.
     for (platform.macros()) |macro| c_mod.addCMacro(macro[0], macro[1]);
 
     // Never define MI_MALLOC_OVERRIDE; this artifact exports the mi_* API.
     for (Platform.sharedMacros(linkage)) |macro| c_mod.addCMacro(macro[0], macro[1]);
 
-    c_mod.addCSourceFiles(.{ .files = &core_sources, .flags = &.{} });
+    c_mod.addCSourceFiles(.{ .files = &core_sources, .flags = &c_flags });
 
     // ELF uses a version script and COFF a generated export list.
     // Mach-O has no export-list mechanism in this build.
@@ -476,9 +481,9 @@ fn add_target_check(
     b: *std.Build,
     step: *std.Build.Step,
     query: std.Target.Query,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     library: Library,
-    linkage: std.builtin.LinkMode,
+    linkage: std.lang.LinkMode,
     runtime_loaded: bool,
 ) void {
     const cross_target = b.resolveTargetQuery(query);
@@ -516,13 +521,13 @@ fn add_target_check(
 }
 
 /// Build the separate consumer with this graph's resolved options.
-/// Run it only when the target has an enabled executor.
+/// Build and run the consumer only when its target is host-native.
 fn runConsumer(
     b: *std.Build,
     target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
+    optimize: std.lang.Optimize,
     library: Library,
-    linkage: std.builtin.LinkMode,
+    linkage: std.lang.LinkMode,
     runtime_loaded: bool,
 ) *std.Build.Step.Run {
     const triple = target.query.zigTriple(b.allocator) catch @panic("OOM");
@@ -545,70 +550,50 @@ fn runConsumer(
     run.addArg(b.fmt("-Druntime={s}", .{if (runtime_loaded) "true" else "false"}));
     // Preserve the system-library choice resolved by the parent graph.
     run.addArg(if (library == .system) b.fmt("-fsys={s}", .{lib_name}) else b.fmt("-fno-sys={s}", .{lib_name}));
-    // Forward configured executors to the nested build.
-    if (b.enable_darling) run.addArg("-fdarling");
-    if (b.enable_qemu) run.addArg("-fqemu");
-    if (b.enable_rosetta) run.addArg("-frosetta");
-    if (b.enable_wasmtime) run.addArg("-fwasmtime");
-    if (b.enable_wine) run.addArg("-fwine");
-    if (b.libc_runtimes_dir) |runtimes| run.addArgs(&.{ "--libc-runtimes", runtimes });
     // Keep job count and summary explicit in the nested build.
     run.addArg("-j8");
     run.addArg("--summary");
     run.addArg("all");
-    if (b.cache_root.path) |cache| {
-        run.addArg("--cache-dir");
-        run.addArg(b.fmt("{s}/consumer", .{cache}));
+    run.addArg("--cache-dir");
+    run.addDirectoryArg2(
+        std.Build.LazyPath.cache_root.path(b, "consumer"),
+        .{ .make_absolute = true },
+    );
+    // Zig 0.17 accepts these locations through the environment, not build flags.
+    for ([_][]const u8{ "ZIG_GLOBAL_CACHE_DIR", "ZIG_LIB_DIR" }) |key| {
+        if (b.graph.environ_map.get(key)) |value| run.setEnvironmentVariable(key, value);
     }
-    if (b.graph.global_cache_root.path) |global_cache| {
-        run.addArg("--global-cache-dir");
-        run.addArg(global_cache);
-    }
-    // Forward a non-default install prefix as an absolute path.
-    const default_prefix = b.build_root.join(b.allocator, &.{"zig-out"}) catch @panic("OOM");
-    if (!std.mem.eql(u8, b.install_prefix, default_prefix)) {
-        const prefix = if (std.fs.path.isAbsolute(b.install_prefix))
-            b.install_prefix
-        else
-            b.pathJoin(&.{ b.graph.cache.cwd, b.install_prefix });
-        run.addArg("--prefix");
-        run.addArg(prefix);
-    }
+    // Forward the parent's install prefix.
+    run.addArg("--prefix");
+    run.addDirectoryArg2(
+        .{ .relative = .{ .base = .install_prefix } },
+        .{ .make_absolute = true },
+    );
     // Pass caller arguments after the build options and separator.
-    if (b.args) |args| {
-        run.addArg("--");
-        run.addArgs(args);
-    }
+    run.addArg("--");
+    run.addPassthruArgs();
     run.has_side_effects = true;
     return run;
 }
 
-/// Match the executor decision used by Zig build-run steps.
+/// Run the nested consumer only when it targets the host natively.
 fn hostCanExecute(b: *std.Build, target: std.Build.ResolvedTarget) bool {
     const host = &b.graph.host.result;
-    const candidate = &target.result;
     const options: std.zig.system.GetExternalExecutorOptions = .{
-        .allow_darling = b.enable_darling,
-        .allow_qemu = b.enable_qemu,
-        .allow_rosetta = b.enable_rosetta,
-        .allow_wasmtime = b.enable_wasmtime,
-        .allow_wine = b.enable_wine,
-        // Match the Run step's QEMU libc-runtime setting.
-        .qemu_fixes_dl = candidate.isGnuLibC() and b.libc_runtimes_dir != null,
+        .host_cpu_arch = host.cpu.arch,
+        .host_os_tag = host.os.tag,
+        .link_mode = .dynamic,
         .link_libc = true,
     };
-    return switch (std.zig.system.getExternalExecutor(b.graph.io, host, candidate, options)) {
-        .native, .rosetta => true,
-        .wine, .wasmtime, .darling => true,
-        // GNU libc targets need supplied runtimes to run under QEMU.
-        .qemu => !(candidate.isGnuLibC() and b.libc_runtimes_dir == null),
-        .bad_dl, .bad_os_or_cpu => false,
+    return switch (std.zig.system.getExternalExecutor(b.graph.io, &target.result, options)) {
+        .native => true,
+        else => false,
     };
 }
 
 /// Generate relocatable pkg-config metadata for the installed artifact.
 /// Windows shared consumers need `MI_SHARED_LIB` for DLL imports.
-fn add_pkg_config(b: *std.Build, platform: Platform, linkage: std.builtin.LinkMode) void {
+fn add_pkg_config(b: *std.Build, platform: Platform, linkage: std.lang.LinkMode) void {
     const files = b.addWriteFiles();
     // Attach the generated file to the install step.
     const install_pc = b.addInstallFileWithDir(
@@ -655,7 +640,7 @@ fn install_licence_records(b: *std.Build) void {
         const install_record = b.addInstallFileWithDir(
             b.path(record),
             .prefix,
-            b.fmt("share/licenses/{s}/{s}", .{ lib_name, std.fs.path.basename(record) }),
+            b.fmt("share/licenses/{s}/{s}", .{ lib_name, std.Io.Dir.path.basename(record) }),
         );
         b.getInstallStep().dependOn(&install_record.step);
     }
@@ -667,7 +652,7 @@ fn install_public_headers(b: *std.Build) void {
         const install_header = b.addInstallFileWithDir(
             b.path(header),
             .prefix,
-            b.fmt("include/{s}", .{std.fs.path.basename(header)}),
+            b.fmt("include/{s}", .{std.Io.Dir.path.basename(header)}),
         );
         b.getInstallStep().dependOn(&install_header.step);
     }
@@ -720,7 +705,7 @@ pub fn build(b: *std.Build) void {
     const library: Library = if (use_system) .system else .bundled;
 
     const linkage_option = b.option(
-        std.builtin.LinkMode,
+        std.lang.LinkMode,
         "linkage",
         "Deliver the native library as a static archive (the default) or as a real " ++
             "shared object with upstream's soname scheme: libmimalloc.so.3.5.3 with " ++
@@ -732,7 +717,7 @@ pub fn build(b: *std.Build) void {
     );
 
     // Preserve static bundled and dynamic system-linkage defaults.
-    const linkage: std.builtin.LinkMode = linkage_option orelse
+    const linkage: std.lang.LinkMode = linkage_option orelse
         (if (library == .system) .dynamic else .static);
 
     // Runtime dispatch is independent of artifact linkage.
@@ -783,7 +768,7 @@ pub fn build(b: *std.Build) void {
     // The smoke step runs the example without installing.
     const run_example = b.addRunArtifact(example);
     run_example.has_side_effects = true;
-    if (b.args) |args| run_example.addArgs(args);
+    run_example.addPassthruArgs();
     b.step("smoke", "Run the deterministic example program").dependOn(&run_example.step);
 
     // Use a run artifact so the test step can execute for the selected target.

@@ -1,6 +1,6 @@
 # mimalloc
 
-Zig 0.16.0 SDK for upstream mimalloc v3.5.3.
+Zig 0.17.0 SDK for upstream mimalloc v3.5.3.
 It provides a typed facade, the translated C API, and optional runtime or system integration.
 
 ## Source deviations
@@ -26,13 +26,13 @@ It provides a typed facade, the translated C API, and optional runtime or system
 | Configured baseline targets | `x86_64-linux-gnu`, `aarch64-linux-gnu`, `aarch64-macos-none`, `x86_64-windows-gnu`, `riscv64-linux-gnu`, `wasm32-wasi` |
 | `wasm32-wasi` | Static linkage only; no dynamic loader. Runtime loading and shared linkage are unavailable. |
 | Emscripten, freestanding | Runtime loading is unavailable without a dynamic loader. |
-| NetBSD | Zig 0.16.0 `translate-c` rejects NetBSD's `assert.h`, which reaches `_Pragma` in `sys/cdefs.h`. |
+| NetBSD | Zig 0.17.0 `translate-c` rejects NetBSD's `assert.h`, which reaches `_Pragma` in `sys/cdefs.h`. |
 | 32-bit tests | One alignment test requests 65,536 bytes; upstream's 32-bit maximum is 32,768 bytes. |
 | Mach-O and COFF shared builds | No ELF version script; internal `_mi_` symbols are not filtered. |
 
 ## Consumption
 
-The package name is `mimalloc`; its version is `3.5.3` and its minimum Zig version is `0.16.0`.
+The package name is `mimalloc`; its version is `3.5.3` and its minimum Zig version is `0.17.0`.
 
 Add a path dependency in the consumer's `build.zig.zon`:
 

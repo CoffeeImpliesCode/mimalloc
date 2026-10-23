@@ -271,7 +271,7 @@ test "realpath resolves to an absolute path with no dot components left in it" {
     var buffer: [8192]u8 = undefined;
     const resolved = mimalloc.realpathInto(".", &buffer) orelse
         return error.SkipZigTest;
-    try std.testing.expect(std.fs.path.isAbsolute(resolved));
+    try std.testing.expect(std.Io.Dir.path.isAbsolute(resolved));
     try std.testing.expect(std.mem.indexOf(u8, resolved, "..") == null);
     try std.testing.expect(std.mem.indexOf(u8, resolved, "/./") == null);
 

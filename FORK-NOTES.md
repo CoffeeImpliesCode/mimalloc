@@ -26,11 +26,15 @@ Upstream declares `mi_collect_reduce` and `mi_stats_merge` in `include/mimalloc.
 - `-Dsystem=true` uses an installed library and headers; the graph does not build or install a bundled artifact in that mode.
 - `-Druntime=true` generates dispatch from the same target translation and leaves the C artifact unlinked from the module. A caller must select a provider explicitly.
 - The runtime descriptor checks `mi_version` and performs a small allocation/free sanity check. This does not prove full ABI compatibility.
+- The 0.17 build API does not expose enabled executors to configuration, so the root consumer step runs native targets and installs foreign targets.
+- Nested Zig 0.17 builds inherit `ZIG_GLOBAL_CACHE_DIR` and `ZIG_LIB_DIR`; removed build flags are not forwarded.
+- WASI sets `MI_ARENA_SLICE_SHIFT=(13 + MI_SIZE_SHIFT)` because Zig 0.17's `PAGE_SIZE` expands to a linker expression in upstream's preprocessor condition.
+- WASI defines `_WASI_EMULATED_PROCESS_CLOCKS` for upstream's `clock()` fallback; Zig 0.17 includes that implementation in its WASI libc.
 
 ## Platform boundaries
 
 - `wasm32-wasi` can use static linkage; dynamic linkage is rejected because the target has no dynamic linker.
 - Windows uses upstream's non-redirect configuration. This package does not replace the process allocator.
 - Mach-O and COFF shared builds have no ELF-style version script; this graph does not filter internal `_mi_` symbols there.
-- Zig 0.16's bundled NetBSD headers fail `translate-c` on the `_Pragma("GCC visibility pop")` in `sys/cdefs.h`, reached through `assert.h`.
+- Zig 0.17's bundled NetBSD headers fail `translate-c` on the `_Pragma("GCC visibility pop")` in `sys/cdefs.h`, reached through `assert.h`.
 - A 32-bit test still requests 65,536-byte alignment, while upstream's limit is 32,768 bytes on 32-bit targets. This is a test-bound issue, not an allocator source patch.
