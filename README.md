@@ -36,12 +36,10 @@ It provides a typed facade, the translated C API, and optional runtime or system
 
 The package name is `mimalloc`; its version is `3.5.3` and its minimum Zig version is `0.17.0`.
 
-Add a path dependency in the consumer's `build.zig.zon`:
+Fetch the dependency into the consumer's `build.zig.zon`:
 
-```zig
-.dependencies = .{
-    .mimalloc = .{ .path = "../mimalloc" },
-},
+```sh
+zig fetch --save git+https://github.com/CoffeeImpliesCode/mimalloc#v3.5.3
 ```
 
 Use the public module or compiled artifact in the consumer's `build.zig`:
@@ -56,6 +54,8 @@ The module is named `mimalloc` and exports the typed facade plus `pub const c`. 
 Build options: `-Dlinkage=static|dynamic` (default `static`), `-Druntime=true`, `-Dsystem=true` or `-fsys=mimalloc`, and the standard `-Doptimize` and `-Dtarget` options.
 
 A C consumer uses the installed headers and links `-lmimalloc`; `mimalloc.pc` supplies pkg-config flags. For a shared Windows C build, define `MI_SHARED_LIB=1`.
+
+Nix outputs are `packages.<system>.{static,shared,default}`. Use `nix build .#static` or `nix build .#shared`; the default is static.
 
 ## Runtime checks
 
