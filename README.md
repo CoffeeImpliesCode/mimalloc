@@ -8,6 +8,7 @@ It provides a typed facade, the translated C API, and optional runtime or system
 - No upstream source file is modified. The package imports 52 files from the official v3.5.3 release; `UPSTREAM.sha256` records them.
 - The package uses the v3 source line only. Upstream's v1/v2 trees, documentation, tests, CMake files, IDE files, binaries, and contrib files are not imported; see `UPSTREAM.md`.
 - Upstream declares `mi_collect_reduce` and `mi_stats_merge` but defines neither in v3.5.3. Calling either through `c` fails to link in linked mode; runtime loading does not require them from a provider.
+- `mi_malloc_size` and `mi_malloc_usable_size` require upstream's allocator override, which this package disables. Linked calls fail to link; runtime loading treats these declarations as optional. Use `mi_usable_size` for package-owned blocks.
 - `README.upstream.md` preserves upstream's README. `NOTICE.md` and `FORK-LICENSE.md` record attribution and file-specific terms.
 
 ## Build deviations
@@ -24,6 +25,7 @@ It provides a typed facade, the translated C API, and optional runtime or system
 | Target or mode | Boundary |
 |---|---|
 | Configured baseline targets | `x86_64-linux-gnu`, `aarch64-linux-gnu`, `aarch64-macos-none`, `x86_64-windows-gnu`, `riscv64-linux-gnu`, `wasm32-wasi` |
+| `check` | Native builds compile baseline targets compatible with the selected mode; shared linkage or runtime loading excludes static-only targets. Cross builds check only the selected target. |
 | `wasm32-wasi` | Static linkage only; no dynamic loader. Runtime loading and shared linkage are unavailable. |
 | Emscripten, freestanding | Runtime loading is unavailable without a dynamic loader. |
 | NetBSD | Zig 0.17.0 `translate-c` rejects NetBSD's `assert.h`, which reaches `_Pragma` in `sys/cdefs.h`. |
@@ -54,3 +56,26 @@ The module is named `mimalloc` and exports the typed facade plus `pub const c`. 
 Build options: `-Dlinkage=static|dynamic` (default `static`), `-Druntime=true`, `-Dsystem=true` or `-fsys=mimalloc`, and the standard `-Doptimize` and `-Dtarget` options.
 
 A C consumer uses the installed headers and links `-lmimalloc`; `mimalloc.pc` supplies pkg-config flags. For a shared Windows C build, define `MI_SHARED_LIB=1`.
+
+## Runtime checks
+
+Runtime checks need an existing shared provider, even when `-Dlinkage=static` selects the bundled artifact.
+Each step reads a separate environment variable containing an absolute provider path:
+
+| Step | Variable |
+|---|---|
+| `test` | `MIMALLOC_PROVIDER` |
+| `smoke` | `MIMALLOC_SMOKE_PROVIDER` |
+| `consumer` | `MIMALLOC_CONSUMER_PROVIDER` |
+
+Set all three variables when you run these steps together:
+
+```sh
+provider=/absolute/path/libmimalloc.so.3
+MIMALLOC_PROVIDER="$provider" \
+MIMALLOC_SMOKE_PROVIDER="$provider" \
+MIMALLOC_CONSUMER_PROVIDER="$provider" \
+zig build test smoke consumer -Druntime=true
+```
+
+The `smoke` and `consumer` steps also accept `-- --provider <absolute path>`. The `test` step still needs `MIMALLOC_PROVIDER`.

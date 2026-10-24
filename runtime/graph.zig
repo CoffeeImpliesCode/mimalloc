@@ -15,12 +15,12 @@ const libc_noise =
     \\
 ;
 
-// Every provider entry point is required except the two missing upstream definitions below.
+// Every provider entry point is required except unsupported declarations below.
 const provider_optional = "";
 
-// These header declarations lack v3.5.3 definitions (`include/mimalloc.h:435,438`).
-// Keep them optional rather than refusing every provider.
-const provider_excluded = "mi_collect_reduce,mi_stats_merge";
+// Two v3.5.3 declarations lack definitions; the size aliases require MI_MALLOC_OVERRIDE.
+// `src/alloc-override.c:13,328-336` gates both aliases behind allocator interposition.
+const provider_excluded = "mi_collect_reduce,mi_stats_merge,mi_malloc_size,mi_malloc_usable_size";
 
 /// Creates the loader core for a statically linked build.
 /// Runtime mode imports its single core through the generated dispatch.

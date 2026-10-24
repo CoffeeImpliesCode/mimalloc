@@ -16,6 +16,8 @@ No vendored upstream source file is modified. The imported files are recorded in
 
 Upstream declares `mi_collect_reduce` and `mi_stats_merge` in `include/mimalloc.h` but defines neither. The facade does not call them, and the runtime descriptor excludes them from its required symbols.
 
+`mi_malloc_size` and `mi_malloc_usable_size` are defined only under `MI_MALLOC_OVERRIDE` in `src/alloc-override.c`. The runtime descriptor also excludes these from required symbols.
+
 ## Build graph deviations
 
 - `build.zig` compiles the 21 units in upstream's `mi_sources` closure; it does not run CMake, autotools or a build-time download.
@@ -26,6 +28,8 @@ Upstream declares `mi_collect_reduce` and `mi_stats_merge` in `include/mimalloc.
 - `-Dsystem=true` uses an installed library and headers; the graph does not build or install a bundled artifact in that mode.
 - `-Druntime=true` generates dispatch from the same target translation and leaves the C artifact unlinked from the module. A caller must select a provider explicitly.
 - The runtime descriptor checks `mi_version` and performs a small allocation/free sanity check. This does not prove full ABI compatibility.
+- Missing-symbol errors print the required symbol name before rejecting a provider.
+- COFF's export list includes all public-header functions defined by the non-override source closure, including the four word-sized allocation helpers without `mi_decl_export`.
 - The 0.17 build API does not expose enabled executors to configuration, so the root consumer step runs native targets and installs foreign targets.
 - Nested Zig 0.17 builds inherit `ZIG_GLOBAL_CACHE_DIR` and `ZIG_LIB_DIR`; removed build flags are not forwarded.
 - WASI sets `MI_ARENA_SLICE_SHIFT=(13 + MI_SIZE_SHIFT)` because Zig 0.17's `PAGE_SIZE` expands to a linker expression in upstream's preprocessor condition.

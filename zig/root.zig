@@ -23,7 +23,6 @@ pub const runtime_loaded: bool = if (@hasDecl(c, "rt_runtime_loaded")) c.rt_runt
 pub const LoadSource = if (runtime_loaded) c.LoadSource else rt.LoadSource;
 
 /// Errors returned by `load`.
-
 /// Load one explicit provider; same-request calls are idempotent and failures may be retried.
 /// Concurrent calls wait; mismatched or reentrant requests return `LoadError`.
 pub const LoadError = if (runtime_loaded) c.LoadError else rt.LoadError;
@@ -200,7 +199,7 @@ pub fn realpath(fname: [:0]const u8) Error![*:0]u8 {
 pub fn realpathInto(fname: [:0]const u8, buffer: []u8) ?[]u8 {
     // The buffer receives a NUL-terminated path.
     if (c.mi_realpath(fname.ptr, @ptrCast(buffer.ptr)) == null) return null;
-    return buffer[0..std.mem.indexOfScalar(u8, buffer, 0) orelse buffer.len];
+    return buffer[0 .. std.mem.indexOfScalar(u8, buffer, 0) orelse buffer.len];
 }
 
 /// Allocate `size` bytes at `alignment`; invalid alignment returns `InvalidAlignment`.
@@ -582,7 +581,7 @@ pub const Heap = struct {
     /// Return null when unresolved.
     pub fn realpathInto(self: *const Heap, fname: [:0]const u8, buffer: []u8) ?[]u8 {
         if (c.mi_heap_realpath(self.handle(), fname.ptr, @ptrCast(buffer.ptr)) == null) return null;
-        return buffer[0..std.mem.indexOfScalar(u8, buffer, 0) orelse buffer.len];
+        return buffer[0 .. std.mem.indexOfScalar(u8, buffer, 0) orelse buffer.len];
     }
 
     /// Visit this heap's pages and, if requested, their blocks; return false to stop.

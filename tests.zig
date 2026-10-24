@@ -14,7 +14,7 @@ const provider_variable = "MIMALLOC_PROVIDER";
 fn ensureLoaded() !void {
     if (!mimalloc.runtime_loaded) return;
     const named = std.c.getenv(provider_variable) orelse return error.ProviderNotNamed;
-    try mimalloc.load(.{ .path = named });
+    try mimalloc.load(.{ .path = std.mem.span(named) });
 }
 
 /// Sizes span allocation, page, and large-object boundaries.
@@ -22,6 +22,20 @@ const probe_sizes = [_]usize{ 0, 1, 2, 7, 8, 15, 16, 17, 63, 64, 65, 127, 128, 2
 
 /// Alignments span mimalloc's small-block and page-overallocation limits.
 const probe_alignments = [_]usize{ 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 4096, 65_536, 1 << 20 };
+
+test "runtime loading does not require allocator override entry points" {
+    if (!mimalloc.runtime_loaded) return;
+    for ([_][]const u8{ "mi_malloc_size", "mi_malloc_usable_size" }) |name| {
+        for (mimalloc.c.symbols) |symbol| {
+            try std.testing.expect(!std.mem.eql(u8, name, symbol.name));
+        }
+        var optional = false;
+        for (mimalloc.c.optional_symbols) |symbol| {
+            if (std.mem.eql(u8, name, symbol.name)) optional = true;
+        }
+        try std.testing.expect(optional);
+    }
+}
 
 test "the linked library agrees with the header it was compiled against" {
     try ensureLoaded();
@@ -412,7 +426,6 @@ test "an arena is reserved, reported, and asked whether it contains an address" 
     const area = mimalloc.arenaArea(arena_id) orelse return error.NoReservedArena;
     try std.testing.expect(area.size >= wanted);
     try std.testing.expect(mimalloc.arenaContains(arena_id, area.start));
-
 }
 
 test "an unknown arena has no region and contains nothing" {

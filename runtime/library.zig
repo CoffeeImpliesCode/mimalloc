@@ -83,8 +83,7 @@ pub fn Config(comptime dispatch: type) type {
             }
 
             // Probe provider initialization with one allocation before publishing.
-            const probe = dst.mi_malloc(probe_size) orelse return
-                "mi_malloc returned null for a 64-byte request, so this " ++
+            const probe = dst.mi_malloc(probe_size) orelse return "mi_malloc returned null for a 64-byte request, so this " ++
                 "provider's allocator could not satisfy a fresh block";
             // Free the probe before the loader closes a rejected provider.
             defer dst.mi_free(probe);

@@ -323,6 +323,11 @@ fn add_c_library(
 
 /// COFF exports public-header functions that have definitions.
 const public_entry_points = [_][]const u8{
+    "mi__expand",
+    "mi_aligned_alloc",
+    "mi_aligned_offset_recalloc",
+    "mi_aligned_recalloc",
+    "mi_any_heap_contains",
     "mi_arena_area",
     "mi_arena_contains",
     "mi_arena_max_object_size",
@@ -345,6 +350,11 @@ const public_entry_points = [_][]const u8{
     "mi_free_small",
     "mi_free_small_nonnull",
     "mi_good_size",
+    "mi_heap_alloc_new",
+    "mi_heap_alloc_new_n",
+    "mi_heap_calloc",
+    "mi_heap_calloc_aligned",
+    "mi_heap_calloc_aligned_at",
     "mi_heap_collect",
     "mi_heap_contains",
     "mi_heap_delete",
@@ -377,6 +387,7 @@ const public_entry_points = [_][]const u8{
     "mi_heap_stats_print_out",
     "mi_heap_strdup",
     "mi_heap_strndup",
+    "mi_heap_theap",
     "mi_heap_visit_abandoned_blocks",
     "mi_heap_visit_blocks",
     "mi_heap_zalloc",
@@ -391,6 +402,7 @@ const public_entry_points = [_][]const u8{
     "mi_malloc",
     "mi_malloc_aligned",
     "mi_malloc_aligned_at",
+    "mi_malloc_good_size",
     "mi_malloc_small",
     "mi_mallocn",
     "mi_mbsdup",
@@ -402,8 +414,19 @@ const public_entry_points = [_][]const u8{
     "mi_new_nothrow",
     "mi_new_realloc",
     "mi_new_reallocn",
+    "mi_option_disable",
+    "mi_option_enable",
+    "mi_option_get",
+    "mi_option_get_clamp",
+    "mi_option_get_size",
+    "mi_option_is_enabled",
+    "mi_option_set",
+    "mi_option_set_default",
+    "mi_option_set_enabled",
+    "mi_option_set_enabled_default",
     "mi_options_print",
     "mi_options_print_out",
+    "mi_posix_memalign",
     "mi_process_done",
     "mi_process_info",
     "mi_process_info_print",
@@ -436,6 +459,7 @@ const public_entry_points = [_][]const u8{
     "mi_stats_get",
     "mi_stats_get_bin_size",
     "mi_stats_get_json",
+    "mi_stats_print",
     "mi_stats_print_out",
     "mi_stats_reset",
     "mi_strdup",
@@ -450,6 +474,26 @@ const public_entry_points = [_][]const u8{
     "mi_subproc_stats_get_json",
     "mi_subproc_stats_print_out",
     "mi_subproc_visit_heaps",
+    "mi_theap_alloc_new",
+    "mi_theap_alloc_new_n",
+    "mi_theap_alloc_new_nothrow",
+    "mi_theap_calloc",
+    "mi_theap_collect",
+    "mi_theap_get_default",
+    "mi_theap_guarded_set_sample_rate",
+    "mi_theap_guarded_set_size_bound",
+    "mi_theap_malloc",
+    "mi_theap_malloc_aligned",
+    "mi_theap_malloc_small",
+    "mi_theap_realloc",
+    "mi_theap_rezalloc",
+    "mi_theap_set_default",
+    "mi_theap_visit_blocks",
+    "mi_theap_wmalloc_small",
+    "mi_theap_wzalloc_small",
+    "mi_theap_zalloc",
+    "mi_theap_zalloc_aligned",
+    "mi_theap_zalloc_small",
     "mi_thread_done",
     "mi_thread_init",
     "mi_thread_set_in_threadpool",
@@ -480,13 +524,12 @@ const public_entry_points = [_][]const u8{
 fn add_target_check(
     b: *std.Build,
     step: *std.Build.Step,
-    query: std.Target.Query,
+    cross_target: std.Build.ResolvedTarget,
     optimize: std.lang.Optimize,
     library: Library,
     linkage: std.lang.LinkMode,
     runtime_loaded: bool,
 ) void {
-    const cross_target = b.resolveTargetQuery(query);
     // Include the target triple in cross-build step names.
     const triple = cross_target.result.zigTriple(b.allocator) catch @panic("unspellable target");
 
@@ -795,14 +838,16 @@ pub fn build(b: *std.Build) void {
     const check_step = b.step(
         "check",
         "Compile the native library, the facade, the tests and the example for " ++
-            "each of the six baseline check targets without running any of them",
+            "each baseline target compatible with the selected linkage and runtime mode",
     );
     if (!target.query.isNative()) {
-        add_target_check(b, check_step, target.query, optimize, library, linkage, runtime_loaded);
+        add_target_check(b, check_step, target, optimize, library, linkage, runtime_loaded);
     } else {
-        // Iterate a slice; `.*` dereferences one payload, not the array.
-        for (check_targets[0..]) |query| {
-            add_target_check(b, check_step, query, optimize, library, linkage, runtime_loaded);
+        for (check_targets) |query| {
+            const cross_target = b.resolveTargetQuery(query);
+            // Static-only targets cannot check shared delivery or runtime loading.
+            if ((linkage == .dynamic or runtime_loaded) and !targetHasDynamicLinker(cross_target)) continue;
+            add_target_check(b, check_step, cross_target, optimize, library, linkage, runtime_loaded);
         }
     }
 
