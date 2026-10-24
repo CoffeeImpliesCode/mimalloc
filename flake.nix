@@ -29,20 +29,11 @@
             inherit linkage;
             zig = pkgs.zig_0_17;
           };
-
-          mimalloc-static = mk "static";
-          mimalloc-shared = mk "dynamic";
         in
         {
-          inherit mimalloc-static mimalloc-shared;
-
-          mimalloc = {
-            static = mimalloc-static;
-            shared = mimalloc-shared;
-            default = mimalloc-static;
-          };
-
-          default = mimalloc-static;
+          static = mk "static";
+          shared = mk "dynamic";
+          default = mk "static";
         });
 
       devShells = forAllSystems (pkgs: {
